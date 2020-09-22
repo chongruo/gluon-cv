@@ -50,7 +50,7 @@ def train_cfg():
     # interval for periodic learning rate decays.
     lr_decay_period = 0
     # epochs at which learning rate decays.
-    lr_decay_epoch = (160, 180)
+    lr_decay_epoch = '160, 180'
     # starting warmup learning rate.
     warmup_lr = 0.0
     # number of warmup epochs.

@@ -1,5 +1,7 @@
 import copy
 import numpy as np
+import pdb
+import glob,os
 
 import autogluon as ag
 from autogluon.task.object_detection.dataset.voc import CustomVOCDetectionBase
@@ -12,6 +14,22 @@ from ..estimators.yolo import YOLOEstimator
 from ..estimators.center_net import CenterNetEstimator
 # from gluoncv.auto.estimators import SSDEstimator, FasterRCNNEstimator, YOLOEstimator, CenterNetEstimator
 
+def generate_gt(root):
+    classes = []
+    all_xml = glob.glob( os.path.join(root, 'Annotations', '*.xml') )
+    for each_xml_file in all_xml:
+        tree = ET.parse(each_xml_file)
+        root = tree.getroot()
+        for child in root:
+            if child.tag=='object':
+                for item in child:
+                    if item.tag=='name':
+                        object_name = item.text
+                        if object_name not in classes:
+                            classes.append(object_name)
+
+    classes = sorted(classes)
+    return classes
 
 def auto_suggest(config, estimator):
     """
@@ -26,6 +44,20 @@ def auto_suggest(config, estimator):
         train_dataset = CustomVOCDetectionBase(classes=('motorbike',),
                                                root=dataset_root + 'tiny_motorbike',
                                                splits=[('', 'trainval')])
+    elif dataset_name == 'comic':
+        classes = generate_gt(dataset_root + 'comic')
+        train_dataset = CustomVOCDetectionBase(classes=classes,
+                                               root=dataset_root + 'comic',
+                                               splits=[('', 'instance_level_annotated')])
+    elif dataset_name == 'watercolor':
+        classes = generate_gt(dataset_root + 'watercolor')
+        train_dataset = CustomVOCDetectionBase(classes=classes,
+                                               root=dataset_root + 'watercolor',
+                                               splits=[('', 'instance_level_annotated')])
+    elif dataset_name == 'clipart':
+        train_dataset = CustomVOCDetectionBase(classes=None,
+                                               root=dataset_root + 'clipart',
+                                               splits=[('', 'train')])
     elif dataset_name == 'coco':
         train_dataset = gdata.COCODetection(splits=['instances_train2017'])
     else:

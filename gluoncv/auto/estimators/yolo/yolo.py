@@ -70,7 +70,9 @@ class YOLOEstimator(BaseEstimator):
         self.train_dataset, self.val_dataset, self.eval_metric = _get_dataset(self._cfg.dataset, self._cfg)
 
         # network
-        net_name = '_'.join(('yolo3', self._cfg.yolo3.backbone, self._cfg.dataset))
+        #net_name = '_'.join(('yolo3', self._cfg.yolo3.backbone, self._cfg.dataset))
+        net_name = '_'.join(('yolo3', self._cfg.yolo3.backbone, 'custom'))
+        #net_name = '_'.join(('yolo3', self._cfg.yolo3.backbone, 'voc'))
         self._cfg.save_prefix += net_name
 
         if self._cfg.yolo3.custom_model:
@@ -104,10 +106,16 @@ class YOLOEstimator(BaseEstimator):
                 self.async_net = self.net
         else:
             # use sync bn if specified
+            classes = self.train_dataset.CLASSES
             if self._cfg.yolo3.syncbn and len(self.ctx) > 1:
-                self.net = get_model(net_name, pretrained_base=True, norm_layer=gluon.contrib.nn.SyncBatchNorm,
+                self.net = get_model(net_name, 
+                                     classes=classes, transfer='coco', 
+                                     pretrained_base=True, 
+                                     norm_layer=gluon.contrib.nn.SyncBatchNorm,
                                      norm_kwargs={'num_devices': len(self.ctx)})
-                self.async_net = get_model(net_name, pretrained_base=False)  # used by cpu worker
+                self.async_net = get_model(net_name, 
+                                           classes=classes, 
+                                           pretrained_base=False)  # used by cpu worker
             else:
                 self.net = get_model(net_name, pretrained_base=True)
                 self.async_net = self.net
@@ -193,7 +201,7 @@ class YOLOEstimator(BaseEstimator):
         if self._cfg.train.lr_decay_period > 0:
             lr_decay_epoch = list(range(self._cfg.train.lr_decay_period, self._cfg.train.epochs, self._cfg.train.lr_decay_period))
         else:
-            lr_decay_epoch = [int(i) for i in self._cfg.train.lr_decay_epoch]
+            lr_decay_epoch = [int(i) for i in self._cfg.train.lr_decay_epoch.split(',')]
         lr_decay_epoch = [e - self._cfg.train.warmup_epochs for e in lr_decay_epoch]
         num_batches = self._cfg.train.num_samples // self._cfg.train.batch_size
         lr_scheduler = LRSequential([

@@ -1,4 +1,5 @@
 import os
+import glob
 
 from mxnet import gluon
 
@@ -11,8 +12,24 @@ from ....data.transforms.presets.yolo import YOLO3DefaultValTransform
 from ....utils.metrics.voc_detection import VOC07MApMetric
 from ....utils.metrics.coco_detection import COCODetectionMetric
 
-from autogluon.task.object_detection.dataset.voc import CustomVOCDetectionBase
+from autogluon.task.object_detection.dataset.voc import CustomVOCDetectionBase, CustomVOCDetection
 
+def generate_gt(root):
+    classes = []
+    all_xml = glob.glob( os.path.join(root, 'Annotations', '*.xml') )
+    for each_xml_file in all_xml:
+        tree = ET.parse(each_xml_file)
+        root = tree.getroot()
+        for child in root:
+            if child.tag=='object':
+                for item in child:
+                    if item.tag=='name':
+                        object_name = item.text
+                        if object_name not in classes:
+                            classes.append(object_name)
+
+    classes = sorted(classes)
+    return classes
 
 def _get_dataset(dataset, args):
     if dataset.lower() == 'voc':
@@ -27,10 +44,37 @@ def _get_dataset(dataset, args):
         # filename_zip = ag.download('https://autogluon.s3.amazonaws.com/datasets/tiny_motorbike.zip', path=root)
         # filename = ag.unzip(filename_zip, root=root)
         # data_root = os.path.join(root, filename)
-        train_dataset = CustomVOCDetectionBase(classes=('motorbike',), root=args.dataset_root + 'tiny_motorbike',
+        train_dataset = CustomVOCDetectionBase(classes=('motorbike',), 
+                                               root=args.dataset_root + 'tiny_motorbike',
                                                splits=[('', 'trainval')])
         val_dataset = CustomVOCDetectionBase(classes=('motorbike',), root=args.dataset_root + 'tiny_motorbike',
                                              splits=[('', 'test')])
+        val_metric = VOC07MApMetric(iou_thresh=0.5, class_names=val_dataset.classes)
+    elif dataset.lower() == 'comic':
+        classes = generate_gt(args.dataset_root + 'comic')
+        train_dataset = CustomVOCDetectionBase(classes=classes,
+                                               root=args.dataset_root + 'comic',
+                                               splits=[('', 'instance_level_annotated')])
+        val_dataset = CustomVOCDetectionBase(classes=None,
+                                               root=args.dataset_root + 'comic',
+                                               splits=[('', 'test')])
+        val_metric = VOC07MApMetric(iou_thresh=0.5, class_names=val_dataset.classes)
+    elif dataset.lower() == 'watercolor':
+        classes = generate_gt(args.dataset_root + 'watercolor')
+        train_dataset = CustomVOCDetectionBase(classes=classes,
+                                               root=args.dataset_root + 'watercolor',
+                                               splits=[('', 'instance_level_annotated')])
+        val_dataset = CustomVOCDetectionBase(classes=None,
+                                               root=args.dataset_root + 'watercolor',
+                                               splits=[('', 'test')])
+        val_metric = VOC07MApMetric(iou_thresh=0.5, class_names=val_dataset.classes)
+    elif dataset.lower() == 'clipart':
+        train_dataset = CustomVOCDetectionBase(classes=None,
+                                               root=args.dataset_root + 'clipart',
+                                               splits=[('', 'train')])
+        val_dataset = CustomVOCDetectionBase(classes=None,
+                                               root=args.dataset_root + 'clipart',
+                                               splits=[('', 'test')])
         val_metric = VOC07MApMetric(iou_thresh=0.5, class_names=val_dataset.classes)
     elif dataset.lower() == 'coco':
         train_dataset = gdata.COCODetection(splits='instances_train2017', use_crowd=False)
